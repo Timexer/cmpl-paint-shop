@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { type Scenario, scenarioDefinitions } from '../data/scenarios';
 import { dialogueData } from '../data/dialogues';
 import { grammarRules } from '../data/grammarRules';
+import { partsScenarioData } from '../data/scenario1';
 
 export type GameStep = 'CHAT' | 'TRANSITION' | 'EMAIL' | 'COMPLETE';
 
@@ -17,6 +18,50 @@ export interface EmailFeedback {
     missingKeywords: string[];
 }
 
+// Scenario 1 Specific State
+interface Scenario1State {
+    step: number; // 0-5
+    activeCurveballId: string | null;
+    outcomeId: string | null;
+}
+
+// Define Scenario 1 metadata for the Sidebar
+const scenario1Definition: Scenario = {
+    id: 'parts_ordering_advanced',
+    name: 'Parts Ordering (Advanced)',
+    clientName: 'BYD Logistics / Fleet Mgr',
+    checklists: [
+        {
+            id: 'identify',
+            text: "Identify the Part",
+            keywords: [], // Logic handled manually
+            suggestion: "I need to check availability for [Code]."
+        },
+        {
+            id: 'curveball',
+            text: "Clarify Details (Qty/VIN/Loc)",
+            keywords: [],
+            suggestion: "Confirm the details requested."
+        },
+        {
+            id: 'negotiate',
+            text: "Negotiate / Confirm Delivery",
+            keywords: [],
+            suggestion: "Negotiate for faster delivery if needed."
+        }
+    ],
+    hints: {
+        identify: "Ask for the catalog number.",
+        curveball: "Answer the specific question asked.",
+        negotiate: "Don't accept long delays without checking alternatives."
+    },
+    emailTask: {
+        subjectHint: "Order Confirmation / Escalation",
+        requiredKeywords: ["confirmed", "order"],
+        instruction: "Write a professional email confirming the final arrangement."
+    }
+};
+
 export function useScenario() {
     const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
     const [step, setStep] = useState<GameStep>('CHAT');
@@ -26,23 +71,26 @@ export function useScenario() {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [systemMessage, setSystemMessage] = useState<string>('');
 
-    // Initialize a random scenario
+    // Scenario 1 State
+    const [scenario1State, setScenario1State] = useState<Scenario1State>({ step: 0, activeCurveballId: null, outcomeId: null });
+
+    // Initialize Scenario 1 exclusively
     const startNewScenario = useCallback(() => {
-        const randomScenario = scenarioDefinitions[Math.floor(Math.random() * scenarioDefinitions.length)];
-        setCurrentScenario(randomScenario);
+        // Reset State
         setStep('CHAT');
         setMessages([]);
-        setCompletedChecks(
-            randomScenario.checklists.reduce((acc, item) => ({ ...acc, [item.id]: false }), {})
-        );
-        setLastHintId(null);
-        setSystemMessage('Mission: Complete the objectives in the left panel.');
+        setScenario1State({ step: 1, activeCurveballId: null, outcomeId: null });
+        setCompletedChecks({ identify: false, curveball: false, negotiate: false });
 
-        // Initial bot message
+        // Set Scenario Definition for UI
+        setCurrentScenario(scenario1Definition);
+        setSystemMessage('Mission: Identify the correct part and negotiate delivery.');
+
+        // Initial Context
+        const randomContext = partsScenarioData.contexts[Math.floor(Math.random() * partsScenarioData.contexts.length)];
         setTimeout(() => {
-            const opening = getVariation(randomScenario.id, 'opening');
-            addMessage('client', opening);
-            updateSuggestions(randomScenario, {});
+            addMessage('client', randomContext.text);
+            setSuggestions(partsScenarioData.parts.map(p => p.code));
         }, 500);
     }, []);
 
@@ -51,72 +99,132 @@ export function useScenario() {
     };
 
     const processUserMessage = (text: string) => {
-        if (!currentScenario || step !== 'CHAT') return;
-
+        if (step !== 'CHAT') return;
         addMessage('user', text);
         const lowerText = text.toLowerCase();
 
         // Simulate thinking delay
         setTimeout(() => {
-            let newlyCompleted = false;
-            let negationTriggered = false;
-            const newChecks = { ...completedChecks };
-
-            currentScenario.checklists.forEach(check => {
-                if (!newChecks[check.id]) {
-                    let match = check.keywords.some(k => lowerText.includes(k));
-
-                    // Contextual confirmation for hints
-                    if (!match && lastHintId === check.id) {
-                        const confirmationWords = ["yes", "yeah", "correct", "right", "sure"];
-                        if (confirmationWords.some(w => lowerText.includes(w))) {
-                            match = true;
-                        }
-                    }
-
-                    if (match) {
-                        newChecks[check.id] = true;
-                        newlyCompleted = true;
-                    }
-                }
-            });
-
-            setCompletedChecks(newChecks);
-
-            // Check for negation in specific scenario
-            if (currentScenario.id === 'comm_channel') {
-                const negationWords = ["no", "nope", "cant", "can't", "don't", "dont", "not"];
-                if (negationWords.some(w => lowerText === w || lowerText.startsWith(w + " "))) {
-                    negationTriggered = true;
-                }
-            }
-
-            // Determine response
-            const allComplete = currentScenario.checklists.every(c => newChecks[c.id]);
-
-            if (allComplete) {
-                const answer = getVariation(currentScenario.id, 'answer');
-                addMessage('client', answer);
-                setSystemMessage('Step 2: Close the conversation professionally.');
-                setSuggestions(["Thank you.", "Best regards.", "Have a nice day."]);
-                setStep('TRANSITION');
-            } else {
-                const missingItem = currentScenario.checklists.find(c => !newChecks[c.id]);
-                let responseText = "";
-
-                if (newlyCompleted && missingItem) {
-                    responseText = "Okay, I got that part. But... " + (currentScenario.hints[missingItem.id] || "can you clarify?");
-                } else if (negationTriggered && currentScenario.id === 'comm_channel') {
-                    responseText = "Okay, if not WhatsApp, what is the best way to send these photos?";
-                } else {
-                    responseText = getFallback('generic_error') + " " + (missingItem ? (currentScenario.hints[missingItem.id] || "") : "");
-                }
-
-                if (missingItem) setLastHintId(missingItem.id);
-                addMessage('client', responseText);
-                updateSuggestions(currentScenario, newChecks);
-            }
+            processScenario1Logic(lowerText);
         }, 800);
+    };
+
+    // --- SCENARIO 1 LOGIC ---
+    const processScenario1Logic = (lowerText: string) => {
+        const s1 = scenario1State;
+        let nextState = { ...s1 };
+        const newChecks = { ...completedChecks };
+
+        // STEP 1: Identify Part
+        if (s1.step === 1) {
+            const matchedPart = partsScenarioData.parts.find(p => lowerText.includes(p.code.toLowerCase()));
+            if (matchedPart) {
+                // Pick random curveball
+                const curveball = partsScenarioData.curveballs[Math.floor(Math.random() * partsScenarioData.curveballs.length)];
+                addMessage('client', curveball.text);
+                nextState.step = 2;
+                nextState.activeCurveballId = curveball.id;
+                setSystemMessage(curveball.hint);
+                setSuggestions(curveball.keywords.slice(0, 3)); // Simple suggestion
+
+                // Mark first objective complete
+                newChecks['identify'] = true;
+            } else {
+                addMessage('client', "I can't find that code. Please check the catalog (e.g., BYD-FB-2024).");
+            }
+        }
+        // STEP 2: Handle Curveball
+        else if (s1.step === 2) {
+            const curveball = partsScenarioData.curveballs.find(c => c.id === s1.activeCurveballId);
+            if (curveball && curveball.keywords.some(k => lowerText.includes(k))) {
+                // Determine Outcome (Randomly pick D1, D2, or D3)
+                const outcomes = ["D1", "D2", "D3"];
+                const outcomeId = outcomes[Math.floor(Math.random() * outcomes.length)];
+                // @ts-ignore
+                const outcome = partsScenarioData.outcomes[outcomeId];
+
+                addMessage('client', outcome.text);
+
+                // Mark second objective complete
+                newChecks['curveball'] = true;
+
+                if (outcomeId === "D2") {
+                    // The Trap
+                    nextState.step = 3;
+                    nextState.outcomeId = "D2";
+                    setSystemMessage("Stock is empty. Accept delay or negotiate?");
+                    setSuggestions(["Okay, 2 weeks is fine.", "I can't wait 2 weeks.", "Is there a faster way?"]);
+                } else {
+                    // Success (D1 or D3)
+                    newChecks['negotiate'] = true;
+                    finishScenario1();
+                }
+            } else {
+                addMessage('client', "Could you clarify that? " + (curveball?.hint || ""));
+            }
+        }
+        // STEP 3: React to Bad News (D2)
+        else if (s1.step === 3) {
+            const acceptKeywords = ["ok", "fine", "wait", "standard", "agree", "accept"];
+            const rejectKeywords = ["no", "cant", "can't", "long", "urgent", "alternative", "faster", "quick"];
+
+            if (acceptKeywords.some(k => lowerText.includes(k)) && !rejectKeywords.some(k => lowerText.includes(k))) {
+                addMessage('client', "Understood. 2 weeks it is. I'll process the order.");
+                newChecks['negotiate'] = true;
+                finishScenario1();
+            } else if (rejectKeywords.some(k => lowerText.includes(k))) {
+                addMessage('client', partsScenarioData.negotiation.offer_tradeoff);
+                nextState.step = 4;
+                setSystemMessage("Air Freight costs +35%. You need authorization.");
+                setSuggestions(["Let's do Air Freight.", "Can we ask Mr. Nowak?"]);
+            } else {
+                addMessage('client', "I need a decision. Wait 2 weeks or look for alternatives?");
+            }
+        }
+        // STEP 4: The Authority Block
+        else if (s1.step === 4) {
+            const authKeywords = ["approve", "do it", "send it", "decision", "authorize", "pay"];
+            const managerKeywords = ["nowak", "manager", "boss", "ask him", "connect"];
+
+            if (managerKeywords.some(k => lowerText.includes(k))) {
+                // Escalation
+                addMessage('system', "CONNECTING FLEET MANAGER...");
+                setTimeout(() => {
+                    addMessage('client', partsScenarioData.negotiation.nowak_intro.replace(/<br>/g, '\n').replace(/<b>/g, '').replace(/<\/b>/g, ''));
+                    nextState.step = 5;
+                    setSystemMessage("Justify the cost to Mr. Nowak.");
+                    setSuggestions(["The customer is furious.", "It protects our reputation."]);
+                    setScenario1State(nextState); // Update state here to avoid race condition in timeout
+                }, 1000);
+                return; // Exit to let timeout handle state update
+            } else if (authKeywords.some(k => lowerText.includes(k))) {
+                addMessage('client', partsScenarioData.negotiation.block_authority);
+            } else {
+                addMessage('client', "I can't proceed without proper approval. Ask Mr. Nowak or accept the delay.");
+            }
+        }
+        // STEP 5: The Boss Level
+        else if (s1.step === 5) {
+            const validReasons = ["customer", "impatient", "reputation", "angry", "wait", "service", "brand"];
+            if (validReasons.some(k => lowerText.includes(k))) {
+                addMessage('client', partsScenarioData.negotiation.nowak_approval);
+                newChecks['negotiate'] = true;
+                finishScenario1();
+            } else {
+                addMessage('client', "That's not a good enough reason to spend +35%. Give me a business reason (e.g. Reputation).");
+            }
+        }
+
+        setScenario1State(nextState);
+        setCompletedChecks(newChecks);
+    };
+
+    const finishScenario1 = () => {
+        setTimeout(() => {
+            setSystemMessage('Step 2: Close the conversation professionally.');
+            setSuggestions(["Thank you.", "Best regards."]);
+            setStep('TRANSITION');
+        }, 1000);
     };
 
     const handleTransition = (text: string) => {
@@ -131,17 +239,13 @@ export function useScenario() {
     };
 
     const validateEmail = (subject: string, body: string): EmailFeedback => {
-        if (!currentScenario) return { isValid: false, errors: [], missingKeywords: [] };
-
         const styleErrors: string[] = [];
         const fullText = subject + " " + body;
 
-        // Sanity
         if (subject.length < 5 || body.length < 15) {
             return { isValid: false, errors: ["Too short. Please write a complete professional email."], missingKeywords: [] };
         }
 
-        // Style & Grammar
         if (!subject.trim()) styleErrors.push("🚨 Critical: You must write a Subject line.");
         else if (['hi', 'hello'].includes(subject.toLowerCase().trim())) {
             styleErrors.push("💡 Style: Subject should be descriptive.");
@@ -170,33 +274,12 @@ export function useScenario() {
             return { isValid: false, errors: styleErrors, missingKeywords: [] };
         }
 
-        // Content Check
-        const lowerFullText = fullText.toLowerCase();
-        const missingKeywords = currentScenario.emailTask.requiredKeywords.filter(k => !lowerFullText.includes(k));
-
-        if (missingKeywords.length > 0) {
-            return { isValid: false, errors: [`You missed key details: "${missingKeywords.join(", ")}"`], missingKeywords };
-        }
-
         setStep('COMPLETE');
         setSystemMessage("SCENARIO COMPLETE! Click 'New Scenario' to restart.");
         return { isValid: true, errors: [], missingKeywords: [] };
     };
 
-    const updateSuggestions = (scenario: Scenario, checks: Record<string, boolean>) => {
-        const missing = scenario.checklists
-            .filter(item => !checks[item.id])
-            .map(item => item.suggestion);
-        setSuggestions(missing);
-    };
-
     // Helpers
-    const getVariation = (id: string, type: 'opening' | 'answer') => {
-        // @ts-ignore
-        const options = dialogueData[id]?.[type];
-        return options ? options[Math.floor(Math.random() * options.length)] : "Error";
-    };
-
     const getFallback = (type: 'generic_error' | 'generic_closer') => {
         const options = dialogueData.fallbacks[type];
         return options[Math.floor(Math.random() * options.length)];
