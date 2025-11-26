@@ -16,7 +16,8 @@ function App() {
     startNewScenario,
     processUserMessage,
     handleTransition,
-    validateEmail
+    validateEmail,
+    isTyping
   } = useScenario();
 
   const [inputValue, setInputValue] = useState('');
@@ -93,6 +94,7 @@ function App() {
                 inputDisabled={step === 'TRANSITION'}
                 inputValue={inputValue}
                 setInputValue={setInputValue}
+                isTyping={isTyping}
               />
             )}
           </div>

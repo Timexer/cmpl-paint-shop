@@ -10,6 +10,7 @@ interface ChatWindowProps {
     inputDisabled: boolean;
     inputValue: string;
     setInputValue: (val: string) => void;
+    isTyping: boolean;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -18,7 +19,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     onSendMessage,
     inputDisabled,
     inputValue,
-    setInputValue
+    setInputValue,
+    isTyping
 }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +30,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages, isTyping]);
 
     const handleSend = () => {
         if (inputValue.trim()) {
@@ -48,6 +50,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {messages.map((msg) => (
                     <MessageBubble key={msg.id} message={msg} />
                 ))}
+
+                {/* Typing Indicator */}
+                {isTyping && (
+                    <div className="flex justify-start mb-4">
+                        <div className="bg-white text-gray-500 text-xs px-4 py-3 rounded-2xl rounded-bl-none border border-gray-200 shadow-sm flex items-center">
+                            <span className="animate-pulse mr-1">●</span>
+                            <span className="animate-pulse mr-1 delay-75">●</span>
+                            <span className="animate-pulse delay-150">●</span>
+                        </div>
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
 
