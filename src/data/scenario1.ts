@@ -1,4 +1,11 @@
 export const partsScenarioData = {
+    // F. AGENT NAMES (Randomized for variety)
+    agentNames: [
+        "Wei Chen", "Li Zhang", "Jun Liu", "Min Wang",
+        "Tao Yang", "Yan Zhao", "Lei Huang", "Jing Wu",
+        "Hui Zhou", "Fang Xu"
+    ],
+
     // A. CORE PARTS
     parts: [
         { id: "A1", name: "Front Bumper", code: "BYD-FB-2024" },

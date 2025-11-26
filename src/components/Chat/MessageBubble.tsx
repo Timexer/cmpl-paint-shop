@@ -33,12 +33,18 @@ export const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
             )}
         >
             <div className={clsx(
-                "max-w-[80%] rounded-2xl px-4 py-3 shadow-sm flex items-start",
+                "max-w-[80%] rounded-2xl px-4 py-3 shadow-sm flex flex-col items-start",
                 isUser ? "bg-orange-600 text-white rounded-br-none" : "bg-white text-gray-800 border border-gray-200 rounded-bl-none"
             )}>
-                <div className="mt-1 mr-3 flex-shrink-0">
-                    {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                {/* Sender Name */}
+                <div className="flex items-center mb-1 opacity-80 text-xs font-bold uppercase tracking-wider">
+                    <div className="mr-2">
+                        {isUser ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
+                    </div>
+                    {message.senderName || (isUser ? 'You' : 'System')}
                 </div>
+
+                {/* Message Text */}
                 <div>
                     <p className="text-sm leading-relaxed">{message.text}</p>
                 </div>
