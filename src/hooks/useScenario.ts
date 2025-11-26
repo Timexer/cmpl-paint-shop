@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { type Scenario, scenarioDefinitions } from '../data/scenarios';
+import { useState, useCallback } from 'react';
+import { type Scenario } from '../data/scenarios';
 import { dialogueData } from '../data/dialogues';
 import { grammarRules } from '../data/grammarRules';
 import { partsScenarioData } from '../data/scenario1';
@@ -67,7 +67,6 @@ export function useScenario() {
     const [step, setStep] = useState<GameStep>('CHAT');
     const [messages, setMessages] = useState<Message[]>([]);
     const [completedChecks, setCompletedChecks] = useState<Record<string, boolean>>({});
-    const [lastHintId, setLastHintId] = useState<string | null>(null);
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [systemMessage, setSystemMessage] = useState<string>('');
 
