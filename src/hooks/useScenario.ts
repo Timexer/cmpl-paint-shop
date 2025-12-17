@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { type Scenario } from '../data/scenarios';
-import { dialogueData } from '../data/dialogues';
+import { useState, useCallback, useRef } from 'react';
+import { type Scenario, scenarioDefinitions } from '../data/scenarios';
+// import { dialogueData } from '../data/dialogues'; // Unused
 import { grammarRules } from '../data/grammarRules';
 import { partsScenarioData } from '../data/scenario1';
 import { generateDialogue } from '../services/gemini';
@@ -29,41 +29,8 @@ interface Scenario1State {
 }
 
 // Define Scenario 1 metadata for the Sidebar
-const scenario1Definition: Scenario = {
-    id: 'parts_ordering_advanced',
-    name: 'Parts Ordering (Advanced)',
-    clientName: 'BYD Logistics / Fleet Mgr',
-    checklists: [
-        {
-            id: 'identify',
-            text: "Identify the Part",
-            keywords: [], // Logic handled manually
-            suggestion: "I need to check availability for [Code]."
-        },
-        {
-            id: 'curveball',
-            text: "Clarify Details (Qty/VIN/Loc)",
-            keywords: [],
-            suggestion: "Confirm the details requested."
-        },
-        {
-            id: 'negotiate',
-            text: "Negotiate / Confirm Delivery",
-            keywords: [],
-            suggestion: "Negotiate for faster delivery if needed."
-        }
-    ],
-    hints: {
-        identify: "Ask for the catalog number.",
-        curveball: "Answer the specific question asked.",
-        negotiate: "Don't accept long delays without checking alternatives."
-    },
-    emailTask: {
-        subjectHint: "Order Confirmation / Escalation",
-        requiredKeywords: ["confirmed", "order"],
-        instruction: "Write a professional email confirming the final arrangement."
-    }
-};
+// Scenario 1 Definition (Now handled via scenarioDefinitions import)
+// const scenario1Definition: Scenario = { ... };
 
 export function useScenario() {
     const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
@@ -82,33 +49,79 @@ export function useScenario() {
         agentName: 'BYD Support'
     });
 
-    // Initialize Scenario 1 exclusively
-    const startNewScenario = useCallback(() => {
-        // Pick random agent name
-        // @ts-ignore
-        const randomName = partsScenarioData.agentNames ? partsScenarioData.agentNames[Math.floor(Math.random() * partsScenarioData.agentNames.length)] : "Wei Chen";
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-        // Reset State
+    // Initialize Scenario (Random between Standard and Advanced)
+    const startNewScenario = useCallback(() => {
+        // Clear any pending timeout from previous calls
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
+
+        // 1. Pick a random scenario from the list
+        const randomScenario = scenarioDefinitions[Math.floor(Math.random() * scenarioDefinitions.length)];
+
+        // Reset Common State
         setStep('CHAT');
         setMessages([]);
+        setCompletedChecks({});
+        setSuggestions([]);
+
+        // Reset Scenario 1 State (regardless of which one we picked, just to be safe)
         setScenario1State({
-            step: 1,
+            step: 0,
             activeCurveballId: null,
             outcomeId: null,
-            agentName: randomName
+            agentName: 'BYD Support'
         });
-        setCompletedChecks({ identify: false, curveball: false, negotiate: false });
 
-        // Set Scenario Definition for UI
-        setCurrentScenario(scenario1Definition);
-        setSystemMessage(`Connected to ${randomName} (BYD Logistics). Identify the correct part.`);
+        // 2. Set the current scenario
+        setCurrentScenario(randomScenario);
 
-        // Initial Context
-        const randomContext = partsScenarioData.contexts[Math.floor(Math.random() * partsScenarioData.contexts.length)];
-        setTimeout(() => {
-            addMessage('client', randomContext.text, randomName);
-            setSuggestions(partsScenarioData.parts.map(p => p.code));
-        }, 500);
+        // 3. Initialize Context based on Scenario Type
+        if (randomScenario.id === 'parts_delivery') {
+            // --- ADVANCED SCENARIO (PARTS) ---
+            // Pick random agent name
+            // @ts-ignore
+            const randomName = partsScenarioData.agentNames ? partsScenarioData.agentNames[Math.floor(Math.random() * partsScenarioData.agentNames.length)] : "Wei Chen";
+
+            setScenario1State({
+                step: 1,
+                activeCurveballId: null,
+                outcomeId: null,
+                agentName: randomName
+            });
+
+            // Initialize completed checks map for this scenario
+            const initialChecks: Record<string, boolean> = {};
+            randomScenario.checklists.forEach(c => initialChecks[c.id] = false);
+            setCompletedChecks(initialChecks);
+
+            setSystemMessage(`Connected to ${randomName} (${randomScenario.clientName}). Identify the correct part.`);
+
+            // Initial Context (from scenario1.ts data)
+            const randomContext = partsScenarioData.contexts[Math.floor(Math.random() * partsScenarioData.contexts.length)];
+            timeoutRef.current = setTimeout(() => {
+                addMessage('client', randomContext.text, randomName);
+                setSuggestions(partsScenarioData.parts.map(p => p.code));
+            }, 500);
+
+        } else {
+            // --- STANDARD SCENARIO (GENERIC) ---
+            // Initialize completed checks map
+            const initialChecks: Record<string, boolean> = {};
+            randomScenario.checklists.forEach(c => initialChecks[c.id] = false);
+            setCompletedChecks(initialChecks);
+
+            setSystemMessage(`Connected to ${randomScenario.clientName}. Checklist active.`);
+            setSuggestions(randomScenario.checklists[0].keywords.slice(0, 3)); // Suggest first task keywords
+
+            // Generic Intro
+            const intro = randomScenario.introText || `(Incoming Call from ${randomScenario.clientName}) Hello Darek, are you there?`;
+            timeoutRef.current = setTimeout(() => {
+                addMessage('client', intro, randomScenario.clientName);
+            }, 500);
+        }
     }, []);
 
     const getSenderName = (role: 'user' | 'client' | 'system', s1State: Scenario1State) => {
@@ -138,8 +151,78 @@ export function useScenario() {
 
         // Simulate thinking delay
         setTimeout(() => {
-            processScenario1Logic(lowerText, text); // Pass original text for AI context
+            if (currentScenario?.id === 'parts_delivery') {
+                processScenario1Logic(lowerText, text); // Pass original text for AI context
+            } else {
+                processStandardLogic(lowerText, text);
+            }
         }, 800);
+    };
+
+    // --- STANDARD SCENARIO LOGIC (Generic) ---
+    const processStandardLogic = async (lowerText: string, originalText: string) => {
+        if (!currentScenario) return;
+
+        let newChecks = { ...completedChecks };
+        let checksUpdated = false;
+        let allComplete = true;
+
+        // Check against checklists
+        currentScenario.checklists.forEach(item => {
+            if (!newChecks[item.id]) {
+                const match = item.keywords.some(k => lowerText.includes(k.toLowerCase()));
+                if (match) {
+                    newChecks[item.id] = true;
+                    checksUpdated = true;
+                }
+            }
+            if (!newChecks[item.id]) allComplete = false;
+        });
+
+        if (checksUpdated) {
+            setCompletedChecks(newChecks);
+        }
+
+        // Generate Response
+        setIsTyping(true);
+        const persona = `You are ${currentScenario.clientName}. Context: ${currentScenario.name}.`;
+        const instruction = checksUpdated
+            ? "The user just completed a checklist item correctly. Acknowledge it briefly and naturaly."
+            : "The user is chatting. Respond naturally to their query.";
+
+        try {
+            // Check if we need to close
+            if (allComplete) {
+                const closingInstruction = "All objectives complete. Tell the user to send the email now.";
+                const aiResponse = await generateDialogue(persona, closingInstruction, originalText, "Understood. Please send the confirmation email now.");
+                addMessage('client', aiResponse, currentScenario.clientName);
+
+                // Force Transition Prompt
+                setSystemMessage("Objective Complete. PROCEED TO EMAIL.");
+                setSuggestions(["Proceed to Email"]);
+            } else {
+                const aiResponse = await generateDialogue(persona, instruction, originalText, "I understand.");
+                addMessage('client', aiResponse, currentScenario.clientName);
+
+                // Update suggestions to next unchecked item
+                const nextItem = currentScenario.checklists.find(c => !newChecks[c.id]);
+                if (nextItem) {
+                    setSuggestions([nextItem.suggestion]);
+                }
+            }
+        } catch (e) {
+            addMessage('client', "Understood.", currentScenario.clientName);
+        } finally {
+            setIsTyping(false);
+        }
+
+        if (allComplete) {
+            // Use timeout to allow the final message to be read
+            setTimeout(() => {
+                setStep('TRANSITION');
+            }, 1000);
+        }
+
     };
 
     // --- SCENARIO 1 LOGIC ---
@@ -327,12 +410,17 @@ export function useScenario() {
     };
 
     const handleTransition = (text: string) => {
+        if (text === "Proceed to Email" || text.toLowerCase().includes("email")) {
+            setStep('EMAIL');
+            return;
+        }
+
         addMessage('user', text, 'You (Darek)');
         setTimeout(() => {
-            addMessage('client', getFallback('generic_closer'), 'System');
+            addMessage('client', "Please send the email now.", 'System');
             setTimeout(() => {
                 setStep('EMAIL');
-            }, 1500);
+            }, 1000);
         }, 800);
     };
 
@@ -378,10 +466,7 @@ export function useScenario() {
     };
 
     // Helpers
-    const getFallback = (type: 'generic_error' | 'generic_closer') => {
-        const options = dialogueData.fallbacks[type];
-        return options[Math.floor(Math.random() * options.length)];
-    };
+    // const getFallback = ... (removed as unused)
 
     return {
         currentScenario,

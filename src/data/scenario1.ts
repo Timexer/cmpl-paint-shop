@@ -31,48 +31,48 @@ export const partsScenarioData = {
     curveballs: [
         {
             id: "C1",
-            text: "Got the code. My screen lists the order as **1 unit**. Is that correct, or do you need **2**?",
+            text: "Got the code. My screen lists the order as 1 unit. Is that correct, or do you need 2?",
             keywords: ["1", "one", "2", "two", "quantity", "confirm", "units"],
             hint: "Confirm the quantity (1 or 2)."
         },
         {
-            id: "C2",
-            text: "Hold on. There are two variants (Sport vs Std). Please give me the **last 4 digits of the VIN** to verify.",
-            keywords: ["vin", "8842", "1234", "9999", "number"],
-            hint: "Provide a VIN (e.g. 8842)."
+            id: "curveball_2",
+            hint: "Check VIN (last 4 digits)",
+            keywords: ["vin", "digit", "last", "number"],
+            text: "Hold on. There are two variants (Sport vs Std). Please give me the last 4 digits of the VIN to verify."
         },
         {
-            id: "C3",
-            text: "Found it. Quickly—is this going to the **Piaseczno** shop or **Praga**?",
-            keywords: ["piaseczno", "praga", "warsaw", "mszczonow", "location", "shop"],
-            hint: "Choose a location."
+            id: "curveball_3",
+            hint: "Clarify Location (Piaseczno vs Praga)",
+            keywords: ["piaseczno", "praga", "shop", "location", "place"],
+            text: "Found it. Quickly—is this going to the Piaseczno shop or Praga?"
         }
     ],
 
     // D. OUTCOMES (The Result)
     outcomes: {
-        "D1": { text: "Perfect. It's booked. Arrival is confirmed for **next Friday**.", type: "success" },
-        "D3": { text: "Lucky day. We actually have a spare in Warsaw. It will arrive **tomorrow morning**.", type: "success" },
+        "D1": { text: "Perfect. It's booked. Arrival is confirmed for next Friday.", type: "success" },
+        "D3": { text: "Lucky day. We actually have a spare in Warsaw. It will arrive tomorrow morning.", type: "success" },
 
         // D2 IS THE TRAP
         "D2": {
-            text: "Unfortunately, stock is empty in EU. It's coming from Shenzhen, China (**2 weeks delay**). Can you accept this?",
-            type: "negotiation"
+            text: "Unfortunately, stock is empty in EU. It's coming from Shenzhen, China (2 weeks delay). Can you accept this?",
+            type: "failure"
         }
     },
 
     // E. NEGOTIATION SCRIPT (Only for D2)
     negotiation: {
         // Step 1: Logistics offers trade-off
-        offer_tradeoff: "I understand. The only alternative is **Air Freight** (4-5 days), but this adds a **35% cost premium**.",
+        offer_tradeoff: "I understand. The only alternative is Air Freight (4-5 days), but this adds a 35% cost premium.",
 
         // Step 2: Darek tries to accept/approve cost himself (The Block)
-        block_authority: "Darek, I can't take your authorization for a premium that high. I need the **Fleet Manager (Mr. Nowak)** to approve it. Please ask him.",
+        block_authority: "Darek, I can't take your authorization for a premium that high. I need the Fleet Manager (Mr. Nowak) to approve it. Please ask him.",
 
         // Step 3: Mr. Nowak enters
-        nowak_intro: "<b>[SYSTEM: CONNECTING FLEET MANAGER...]</b><br><br>Darek, I'm Mr. Nowak. Logistics says you want Air Freight (+35%). Before I pay that, **justify it**. Is the car blocking the line, or is the customer just impatient?",
+        nowak_intro: "<b>[SYSTEM: CONNECTING FLEET MANAGER...]</b><br><br>Darek, I'm Mr. Nowak. Logistics says you want Air Freight (+35%). Before I pay that, justify it. Is the car blocking the line, or is the customer just impatient?",
 
         // Step 4: Success
-        nowak_approval: "Understood. Customer reputation is key. I authorize **Air Freight**. I'll email Logistics now."
+        nowak_approval: "Understood. Customer reputation is key. I authorize Air Freight. I'll email Logistics now."
     }
 };

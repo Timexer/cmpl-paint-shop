@@ -33,8 +33,8 @@ export const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
             )}
         >
             <div className={clsx(
-                "max-w-[80%] rounded-2xl px-4 py-3 shadow-sm flex flex-col items-start",
-                isUser ? "bg-orange-600 text-white rounded-br-none" : "bg-white text-gray-800 border border-gray-200 rounded-bl-none"
+                "max-w-[80%] rounded-2xl px-4 py-3 shadow-sm flex flex-col items-start transition-colors",
+                isUser ? "bg-orange-600 text-white rounded-br-none" : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-bl-none"
             )}>
                 {/* Sender Name */}
                 <div className="flex items-center mb-1 opacity-80 text-xs font-bold uppercase tracking-wider">

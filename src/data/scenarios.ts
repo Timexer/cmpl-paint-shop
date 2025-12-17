@@ -16,6 +16,7 @@ export interface Scenario {
         requiredKeywords: string[];
         instruction: string;
     };
+    introText?: string;
 }
 
 export const scenarioDefinitions: Scenario[] = [
@@ -73,7 +74,8 @@ export const scenarioDefinitions: Scenario[] = [
             subjectHint: "Urgent: 40 Approvals",
             requiredKeywords: ["approved", "40", "jotform"],
             instruction: "Send a 'Written Confirmation' email summarizing that he agreed to approve the cars."
-        }
+        },
+        introText: "Hello Darek. I'm looking at the system and I see a lot of pending estimates. We need to move these."
     },
     {
         id: 'invoice_check',
@@ -98,7 +100,8 @@ export const scenarioDefinitions: Scenario[] = [
             subjectHint: "Payment Status: October",
             requiredKeywords: ["received", "processed", "october"],
             instruction: "Write an email to your boss confirming BYD has received the invoices."
-        }
+        },
+        introText: "Hi Darek. Just doing our monthly reconciliation. I'm missing confirmation on the last batch of documents."
     },
     {
         id: 'repair_timeline',
@@ -129,7 +132,8 @@ export const scenarioDefinitions: Scenario[] = [
             subjectHint: "Delay Notification: White BYD",
             requiredKeywords: ["china", "2 weeks", "delay"],
             instruction: "Send a formal delay notification email to the client."
-        }
+        },
+        introText: "Hello? Is this Darek? I've been waiting for my white BYD for three days. Where is the part?"
     },
     {
         id: 'comm_channel',
@@ -160,6 +164,7 @@ export const scenarioDefinitions: Scenario[] = [
             subjectHint: "Communication Policy",
             requiredKeywords: ["email", "documentation", "policy"],
             instruction: "Write a polite email confirming that all future files must be sent via email."
-        }
+        },
+        introText: "Hi. I'm sending you the photos via WhatsApp now. Is that okay? It's much faster for me."
     }
 ];
